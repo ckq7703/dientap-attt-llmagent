@@ -100,10 +100,7 @@ services:
       - wazuh.manager:wazuh.manager
 
   chatbot:
-    build:
-      context: ./smartpro-vuln-llm-agent
-      dockerfile: Dockerfile
-    image: smartpro-vuln-llm-agent:latest
+    image: quochigh/dientapattt-smartpro-vuln-llm-agent:latest
     ports:
       - "${CHATBOT_PORT:-8501}:8501"
     environment:
