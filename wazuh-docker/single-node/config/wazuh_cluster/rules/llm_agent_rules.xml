@@ -14,7 +14,7 @@
   <!-- ========================================================
        BASE RULE — phân loại mọi event từ llm-agent
        ======================================================== -->
-  <rule id="100200" level="0">
+  <rule id="100200" level="8">
     <decoded_as>json</decoded_as>
     <field name="app">llm-agent</field>
     <description>SmartPro LLM Agent: event nhận được</description>
