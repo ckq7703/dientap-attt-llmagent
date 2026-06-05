@@ -1,0 +1,19 @@
+<!--
+  Wazuh Custom Decoder — SmartPro LLM Agent (JSON logs)
+  File: /var/ossec/etc/decoders/llm_agent_decoder.xml
+
+  Log format (python-json-logger):
+  {"asctime":"...", "levelname":"INFO", "message":"", "event":"sql_query",
+   "session_id":"abc", "sql_query":"...", "app":"llm-agent"}
+
+  Cách hoạt động:
+    - Decoder cha "llm-agent" nhận dạng bất kỳ JSON nào có "app":"llm-agent"
+    - JSON_Decoder tự động parse toàn bộ fields thành data.*
+    - Rules dùng <field name="event"> và các field cụ thể để phân loại
+-->
+
+<!-- Decoder cha: nhận diện log từ llm-agent bằng prematch trên raw JSON -->
+<decoder name="llm-agent">
+  <prematch>"app":"llm-agent"</prematch>
+  <plugin_decoder>JSON_Decoder</plugin_decoder>
+</decoder>

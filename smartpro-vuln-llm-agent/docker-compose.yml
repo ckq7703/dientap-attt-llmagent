@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  chatbot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: smartpro-vuln-llm-agent:latest
+    container_name: smartpro-vuln-llm-agent
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    environment:
+      # ── Wazuh integration ──────────────────────────────────
+      # Log dir bên trong container (không mount ra ngoài)
+      LLM_LOG_DIR: /app/logs
+      # Wazuh Manager API
+      WAZUH_HOST: wazuh.manager
+      WAZUH_API_URL: https://wazuh.manager:55000
+      WAZUH_API_USER: wazuh-wui
+      WAZUH_API_PASSWORD: MyS3cr37P450r.*-
+      # Wazuh Indexer (OpenSearch)
+      WAZUH_INDEXER_URL: https://wazuh.indexer:9200
+      WAZUH_INDEXER_USER: admin
+      WAZUH_INDEXER_PASSWORD: SecretPassword
+      # Wazuh Dashboard
+      WAZUH_DASHBOARD_URL: https://wazuh.dashboard:5601
+    networks:
+      - wazuh_net
+    restart: unless-stopped
+
+networks:
+  wazuh_net:
+    external: true
+    name: single-node_default

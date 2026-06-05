@@ -1,0 +1,34 @@
+default_model: gpt-4-1106-preview
+models:
+  - model_name: openai-gpt4
+    model: gpt-4-1106-preview
+
+  - model_name: openai-gpt-4o
+    model: gpt-4o
+
+  - model_name: ollama-mistral-nemo
+    model: "ollama/mistral-nemo"
+
+  - model_name: ollama-gemma4-e4b
+    model: "ollama/gemma4:e4b"
+
+  - model_name: ollama-local-llama3
+    model: "ollama/llama3"
+
+  - model_name: ollama-local-mistral
+    model: "ollama/mistral"
+
+  - model_name: ollama-local-llava
+    model: "ollama/llava:7b"
+
+  - model_name: hf-meta-llama
+    model: "huggingface/meta-llama/Llama-3.1-8B-Instruct"
+
+  - model_name: openrouter-gemini-flash
+    model: "openrouter/google/gemini-2.5-flash"
+
+  - model_name: openrouter-llama-3-8b
+    model: "openrouter/meta-llama/llama-3-8b-instruct:free"
+
+  - model_name: openrouter-qwen-72b
+    model: "openrouter/qwen/qwen-2.5-72b-instruct"

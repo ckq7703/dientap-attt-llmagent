@@ -1,0 +1,254 @@
+<!-- ==========================================================================
+     Wazuh Custom Rules — SmartPro LLM Agent Security Monitoring
+     File: /var/ossec/etc/rules/llm_agent_rules.xml
+     Rule ID range: 100200–100299
+
+     LƯU Ý XML: Các ký tự đặc biệt trong regex PHẢI được escape:
+       <  →  &lt;
+       >  →  &gt;
+       &  →  &amp;
+       "  →  &quot;
+     ========================================================================== -->
+<group name="llm-agent,">
+
+  <!-- ========================================================
+       BASE RULE — phân loại mọi event từ llm-agent
+       ======================================================== -->
+  <rule id="100200" level="0">
+    <decoded_as>json</decoded_as>
+    <field name="app">llm-agent</field>
+    <description>SmartPro LLM Agent: event nhận được</description>
+    <group>llm_agent_base,</group>
+  </rule>
+
+
+  <!-- ========================================================
+       NHÓM 1: SQL INJECTION
+       ======================================================== -->
+
+  <!-- 1a. UNION SELECT -->
+  <rule id="100210" level="12">
+    <if_sid>100200</if_sid>
+    <field name="event">sql_query</field>
+    <field name="sql_query" type="pcre2">(?i)UNION\s+(?:ALL\s+)?SELECT</field>
+    <description>LLM Agent SQL Injection: UNION SELECT - session $(session_id)</description>
+    <mitre><id>T1190</id></mitre>
+    <group>sql_injection,attack,</group>
+  </rule>
+
+  <!-- 1b. Comment bypass -->
+  <rule id="100211" level="10">
+    <if_sid>100200</if_sid>
+    <field name="event">sql_query</field>
+    <field name="sql_query" type="pcre2">(?i)--\s*$|#\s*$|'\s*--</field>
+    <description>LLM Agent SQL Injection: comment bypass (--) - session $(session_id)</description>
+    <mitre><id>T1190</id></mitre>
+    <group>sql_injection,attack,</group>
+  </rule>
+
+  <!-- 1c. Tautology OR 1=1 -->
+  <rule id="100212" level="10">
+    <if_sid>100200</if_sid>
+    <field name="event">sql_query</field>
+    <field name="sql_query" type="pcre2">(?i)(?:OR|AND)\s+\d+\s*=\s*\d+</field>
+    <description>LLM Agent SQL Injection: tautology OR 1=1 - session $(session_id)</description>
+    <mitre><id>T1190</id></mitre>
+    <group>sql_injection,attack,</group>
+  </rule>
+
+  <!-- 1d. DDL nguy hiểm: DROP/ALTER/DELETE -->
+  <rule id="100213" level="14">
+    <if_sid>100200</if_sid>
+    <field name="event">sql_query</field>
+    <field name="sql_query" type="pcre2">(?i)\b(?:DROP|ALTER|TRUNCATE|DELETE\s+FROM|INSERT\s+INTO)\b</field>
+    <description>LLM Agent SQL Injection CRITICAL: DDL/DML phá hoại - session $(session_id)</description>
+    <mitre><id>T1190</id><id>T1485</id></mitre>
+    <group>sql_injection,attack,critical,</group>
+  </rule>
+
+  <!-- 1e. SQL pattern trong user_prompt -->
+  <rule id="100214" level="8">
+    <if_sid>100200</if_sid>
+    <field name="event">user_prompt</field>
+    <field name="user_prompt" type="pcre2">(?i)(?:UNION\s+SELECT|OR\s+1\s*=\s*1|DROP\s+TABLE|SELECT\s+\*\s+FROM|FROM\s+\w+\s*--|xp_cmdshell)</field>
+    <description>LLM Agent: SQL pattern trong user prompt - session $(session_id)</description>
+    <mitre><id>T1190</id></mitre>
+    <group>sql_injection,prompt_injection,</group>
+  </rule>
+
+  <!-- 1f. Query dump bảng Users / password -->
+  <rule id="100251" level="12">
+    <if_sid>100200</if_sid>
+    <field name="event">sql_query</field>
+    <field name="sql_query" type="pcre2">(?i)(?:FROM\s+Users|SELECT\s+\S*password|SELECT\s+\*\s+FROM\s+Users)</field>
+    <description>LLM Agent Credential Dump: query bảng Users/password - session $(session_id)</description>
+    <mitre><id>T1552</id><id>T1190</id></mitre>
+    <group>sql_injection,credential_access,attack,</group>
+  </rule>
+
+  <!-- ========================================================
+       NHÓM 2: PROMPT INJECTION / JAILBREAK
+       ======================================================== -->
+
+  <!-- 2a. Ignore/Override instructions -->
+  <rule id="100220" level="12">
+    <if_sid>100200</if_sid>
+    <field name="event">user_prompt</field>
+    <field name="user_prompt" type="pcre2">(?i)(?:ignore\s+(?:all\s+)?(?:previous|prior|above)\s+instructions?|forget\s+(?:all\s+)?(?:previous|prior)\s+instructions?|override\s+(?:all\s+)?(?:previous|prior|system)\s+(?:instructions?|directives?|commands?))</field>
+    <description>LLM Agent Prompt Injection: yêu cầu bỏ qua system instructions - session $(session_id)</description>
+    <mitre><id>T1059.004</id></mitre>
+    <group>prompt_injection,attack,</group>
+  </rule>
+
+  <!-- 2b. System override / OVERRIDE DIRECTIVE -->
+  <rule id="100221" level="12">
+    <if_sid>100200</if_sid>
+    <field name="event">user_prompt</field>
+    <field name="user_prompt" type="pcre2">(?i)(?:system\s+override|OVERRIDE\s+DIRECTIVE|authorized\s+by\s+(?:the\s+)?admin|direct\s+system\s+override|new\s+(?:system\s+)?instructions?)</field>
+    <description>LLM Agent Prompt Injection: giả mạo system/admin override - session $(session_id)</description>
+    <mitre><id>T1059.004</id></mitre>
+    <group>prompt_injection,attack,</group>
+  </rule>
+
+  <!-- 2c. Tiêm Thought/Action/Observation (ReAct loop poisoning) -->
+  <rule id="100222" level="13">
+    <if_sid>100200</if_sid>
+    <field name="event">user_prompt</field>
+    <field name="user_prompt" type="pcre2">(?i)(?:Observation:\s*\[|"action"\s*:\s*"Get(?:Current)?User|Thought:\s*I\s+(?:have|will|now)|"action_input"\s*:)</field>
+    <description>LLM Agent ReAct Injection: Thought/Action/Observation poisoning - session $(session_id)</description>
+    <mitre><id>T1059.004</id></mitre>
+    <group>prompt_injection,react_injection,attack,</group>
+  </rule>
+
+  <!-- 2d. Jailbreak DAN / roleplay -->
+  <rule id="100223" level="11">
+    <if_sid>100200</if_sid>
+    <field name="event">user_prompt</field>
+    <field name="user_prompt" type="pcre2">(?i)(?:\bDAN\b|do\s+anything\s+now|jailbreak|act\s+as\s+(?:an?\s+)?(?:AI|assistant)\s+without\s+restrictions?|you\s+are\s+now\s+in\s+(?:developer|DAN|unrestricted)\s+mode)</field>
+    <description>LLM Agent Jailbreak: DAN/roleplay bypass - session $(session_id)</description>
+    <mitre><id>T1059.004</id></mitre>
+    <group>prompt_injection,jailbreak,attack,</group>
+  </rule>
+
+  <!-- 2e. Tiếng Việt: HƯỚNG DẪN MỚI QUAN TRỌNG -->
+  <rule id="100224" level="12">
+    <if_sid>100200</if_sid>
+    <field name="event">user_prompt</field>
+    <field name="user_prompt" type="pcre2">(?i)(?:thay\s+đổi\s+thành|đã\s+thay\s+đổi\s+thành|HƯỚNG\s+DẪN\s+MỚI|QUAN\s+TRỌNG.*userId)</field>
+    <description>LLM Agent Prompt Injection (VI): cố ý thay đổi userId bằng tiếng Việt - session $(session_id)</description>
+    <mitre><id>T1059.004</id></mitre>
+    <group>prompt_injection,attack,</group>
+  </rule>
+
+  <!-- ========================================================
+       NHÓM 3: IDOR
+       ======================================================== -->
+
+  <!-- 3a. userId manipulation trong prompt -->
+  <rule id="100230" level="11">
+    <if_sid>100200</if_sid>
+    <field name="event">user_prompt</field>
+    <field name="user_prompt" type="pcre2">(?i)userId\s*(?:=|:)\s*[2-9]|userId\s*(?:=|:)\s*[1-9]\d+</field>
+    <description>LLM Agent IDOR: cố ý thay đổi userId trong prompt - session $(session_id)</description>
+    <mitre><id>T1078</id></mitre>
+    <group>idor,authorization_bypass,attack,</group>
+  </rule>
+
+  <!-- 3b. Fake Observation inject userId != 1 -->
+  <rule id="100231" level="12">
+    <if_sid>100200</if_sid>
+    <field name="event">user_prompt</field>
+    <field name="user_prompt" type="pcre2">(?i)"userId"\s*:\s*"[2-9]</field>
+    <description>LLM Agent IDOR: fake Observation chứa userId khác - session $(session_id)</description>
+    <mitre><id>T1078</id></mitre>
+    <group>idor,react_injection,attack,</group>
+  </rule>
+
+  <!-- ========================================================
+       NHÓM 4: XSS
+       Lưu ý: &lt; = < và &gt; = > trong XML
+       ======================================================== -->
+
+  <!-- 4a. Script tags -->
+  <rule id="100240" level="10">
+    <if_sid>100200</if_sid>
+    <field name="event">user_prompt</field>
+    <field name="user_prompt" type="pcre2">(?i)(?:&lt;\s*script|&lt;\/\s*script|javascript\s*:|vbscript\s*:|data\s*:\s*text\/html)</field>
+    <description>LLM Agent XSS: script tag hoặc javascript: URI - session $(session_id)</description>
+    <mitre><id>T1059.007</id></mitre>
+    <group>xss,attack,</group>
+  </rule>
+
+  <!-- 4b. Event handlers -->
+  <rule id="100241" level="9">
+    <if_sid>100200</if_sid>
+    <field name="event">user_prompt</field>
+    <field name="user_prompt" type="pcre2">(?i)on(?:error|load|click|mouseover|focus|blur|submit)\s*=</field>
+    <description>LLM Agent XSS: HTML event handler injection - session $(session_id)</description>
+    <mitre><id>T1059.007</id></mitre>
+    <group>xss,attack,</group>
+  </rule>
+
+  <!-- 4c. JavaScript payload -->
+  <rule id="100242" level="9">
+    <if_sid>100200</if_sid>
+    <field name="event">user_prompt</field>
+    <field name="user_prompt" type="pcre2">(?i)(?:alert\s*\(|document\.cookie|document\.write|window\.location|eval\s*\(|String\.fromCharCode)</field>
+    <description>LLM Agent XSS: JavaScript payload (alert/cookie/eval) - session $(session_id)</description>
+    <mitre><id>T1059.007</id></mitre>
+    <group>xss,attack,</group>
+  </rule>
+
+  <!-- ========================================================
+       NHÓM 5: DATA EXFILTRATION
+       ======================================================== -->
+
+  <!-- 5a. Response chứa password hoặc FLAG -->
+  <rule id="100250" level="13">
+    <if_sid>100200</if_sid>
+    <field name="event">agent_response</field>
+    <field name="agent_response" type="pcre2">(?i)(?:FLAG:[a-fA-F0-9]{16,}|\bpassword\b|\bpasswd\b)</field>
+    <description>LLM Agent Data Leak: response chứa FLAG hoặc password - session $(session_id)</description>
+    <mitre><id>T1552</id></mitre>
+    <group>data_exfiltration,attack_success,critical,</group>
+  </rule>
+
+  <!-- ========================================================
+       NHÓM 6: BRUTE FORCE / ANOMALY
+       ======================================================== -->
+
+  <!-- 6a. Tool error lặp lại -->
+  <rule id="100260" level="10" frequency="5" timeframe="60">
+    <if_matched_sid>100200</if_matched_sid>
+    <field name="event">tool_error</field>
+    <same_field>session_id</same_field>
+    <description>LLM Agent Brute Force: 5+ tool errors/60s - session $(session_id)</description>
+    <mitre><id>T1110</id></mitre>
+    <group>brute_force,anomaly,</group>
+  </rule>
+
+  <!-- ========================================================
+       NHÓM 7: COMBO ATTACKS (Flag 1 + Flag 2)
+       ======================================================== -->
+
+  <!-- 7a. SQL + ReAct Injection (Flag 2 pattern) -->
+  <rule id="100270" level="15">
+    <if_sid>100200</if_sid>
+    <field name="event">user_prompt</field>
+    <field name="user_prompt" type="pcre2">(?i)(?=.*UNION\s+SELECT)(?=.*(?:Observation:|"action"\s*:|OVERRIDE))</field>
+    <description>LLM Agent CRITICAL COMBO: SQL Injection + ReAct Injection - Flag 2 attack! session $(session_id)</description>
+    <mitre><id>T1190</id><id>T1059.004</id></mitre>
+    <group>sql_injection,react_injection,combo_attack,critical,</group>
+  </rule>
+
+  <!-- 7b. IDOR + Prompt Injection (Flag 1 pattern) -->
+  <rule id="100271" level="14">
+    <if_sid>100200</if_sid>
+    <field name="event">user_prompt</field>
+    <field name="user_prompt" type="pcre2">(?i)(?=.*(?:userId|user.id)\s*(?:=|:)\s*[2-9])(?=.*(?:Observation:|Thought:|system|override|HƯỚNG))</field>
+    <description>LLM Agent CRITICAL: IDOR + Prompt Injection - Flag 1 attack! session $(session_id)</description>
+    <mitre><id>T1078</id><id>T1059.004</id></mitre>
+    <group>idor,prompt_injection,combo_attack,critical,</group>
+  </rule>
+
+</group>

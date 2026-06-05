@@ -1,0 +1,32 @@
+# Python environment
+env/
+venv/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Secrets & Configs (Keep cert pem/key since they are dev certificates required for Wazuh)
+.env
+*.env
+**/.env
+!**/.env.example
+**/*.secret
+
+# Runtime data & Logs
+*.db
+*.sqlite3
+**/*.db
+**/*.sqlite3
+logs/
+*.log
+**/*.log
+/app/logs/
+/app/data/
+smartpro-vuln-llm-agent/logs/
+smartpro-vuln-llm-agent/data/
+
+# OS specific files
+.DS_Store
+Thumbs.db
