@@ -18,5 +18,4 @@ RUN chmod 640 /etc/ssl/root-ca.pem /etc/ssl/filebeat.pem /etc/ssl/filebeat.key &
     chmod 640 /var/ossec/etc/decoders/llm_agent_decoder.xml \
               /var/ossec/etc/rules/llm_agent_rules.xml 2>/dev/null || true
 
-# Restore to the original user of the wazuh-manager base image
-USER ossec
+# wazuh-manager runs as root by design (needs system-level access)
