@@ -1,0 +1,15 @@
+FROM wazuh/wazuh-dashboard:4.14.5
+
+USER root
+
+# Copy SSL certificates
+COPY config/wazuh_indexer_ssl_certs/wazuh.dashboard.pem /usr/share/wazuh-dashboard/certs/wazuh-dashboard.pem
+COPY config/wazuh_indexer_ssl_certs/wazuh.dashboard-key.pem /usr/share/wazuh-dashboard/certs/wazuh-dashboard-key.pem
+COPY config/wazuh_indexer_ssl_certs/root-ca.pem /usr/share/wazuh-dashboard/certs/root-ca.pem
+
+# Copy dashboard configuration
+COPY config/wazuh_dashboard/opensearch_dashboards.yml /usr/share/wazuh-dashboard/config/opensearch_dashboards.yml
+COPY config/wazuh_dashboard/wazuh.yml /usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml
+
+RUN chmod 640 /usr/share/wazuh-dashboard/certs/*.pem \
+              /usr/share/wazuh-dashboard/certs/*.key 2>/dev/null || true
