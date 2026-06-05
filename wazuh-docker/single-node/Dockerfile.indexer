@@ -1,5 +1,7 @@
 FROM wazuh/wazuh-indexer:4.14.5
 
+USER root
+
 # Copy SSL certificates
 COPY config/wazuh_indexer_ssl_certs/root-ca.pem /usr/share/wazuh-indexer/config/certs/root-ca.pem
 COPY config/wazuh_indexer_ssl_certs/wazuh.indexer-key.pem /usr/share/wazuh-indexer/config/certs/wazuh.indexer.key
@@ -11,6 +13,9 @@ COPY config/wazuh_indexer_ssl_certs/admin-key.pem /usr/share/wazuh-indexer/confi
 COPY config/wazuh_indexer/wazuh.indexer.yml /usr/share/wazuh-indexer/config/opensearch.yml
 COPY config/wazuh_indexer/internal_users.yml /usr/share/wazuh-indexer/config/opensearch-security/internal_users.yml
 
-USER root
-RUN chmod 600 /usr/share/wazuh-indexer/config/certs/*.pem \
+RUN chown -R 1000:1000 /usr/share/wazuh-indexer/config/certs/ && \
+    chmod 640 /usr/share/wazuh-indexer/config/certs/*.pem \
               /usr/share/wazuh-indexer/config/certs/*.key 2>/dev/null || true
+
+# Restore non-root user
+USER 1000

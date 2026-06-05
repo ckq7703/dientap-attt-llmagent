@@ -1,5 +1,6 @@
 FROM wazuh/wazuh-dashboard:4.14.5
 
+# Temporarily switch to root for file operations
 USER root
 
 # Copy SSL certificates
@@ -11,5 +12,11 @@ COPY config/wazuh_indexer_ssl_certs/root-ca.pem /usr/share/wazuh-dashboard/certs
 COPY config/wazuh_dashboard/opensearch_dashboards.yml /usr/share/wazuh-dashboard/config/opensearch_dashboards.yml
 COPY config/wazuh_dashboard/wazuh.yml /usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml
 
-RUN chmod 640 /usr/share/wazuh-dashboard/certs/*.pem \
-              /usr/share/wazuh-dashboard/certs/*.key 2>/dev/null || true
+RUN chown -R 1000:1000 \
+      /usr/share/wazuh-dashboard/certs/ \
+      /usr/share/wazuh-dashboard/config/opensearch_dashboards.yml \
+      /usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml && \
+    chmod 640 /usr/share/wazuh-dashboard/certs/*.pem
+
+# Switch back to non-root user (wazuh-dashboard runs as UID 1000)
+USER 1000
