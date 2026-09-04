@@ -1,4 +1,4 @@
-# 🛡️ SmartPro Vuln LLM Agent + Wazuh SIEM Stack
+# 🛡️Vuln LLM Agent + Wazuh SIEM Stack
 
 [![Docker Hub](https://img.shields.io/badge/Docker%20Hub-quochigh-blue?logo=docker)](https://hub.docker.com/u/quochigh)
 [![GitHub](https://img.shields.io/badge/GitHub-dientap--attt--llmagent-black?logo=github)](https://github.com/ckq7703/dientap-attt-llmagent)
